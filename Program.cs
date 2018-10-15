@@ -19,29 +19,27 @@ namespace MonoWebPublisher
                 Console.WriteLine("Parameter not match!");
                 Environment.Exit(1);
             }
-            string projectFile = args[0];
-            string destDir = args[1];
-            string configuration = "Release";
-            try
+            var projectFile = args[0];
+            var destDir = args[1];
+            var configuration = "Release";
+
+            if (args.Length == 3)
             {
-                configuration = args[2];
-            }
-            catch
-            {
-                //ignore
+                if (!string.IsNullOrWhiteSpace(args[2]))
+                    configuration = args[2];
             }
 
-            string sourceDir = Path.GetDirectoryName(projectFile);
+            var sourceDir = Path.GetDirectoryName(projectFile);
 
             // Find out if web.config should be transformed
             var webConfig = Path.Combine(sourceDir, "Web.config");
             var webConfigTransform = Path.Combine(sourceDir, "Web." + configuration + ".config");
-            bool shouldTransformWebConfig = File.Exists(webConfig) && File.Exists(webConfigTransform);
+            var shouldTransformWebConfig = File.Exists(webConfig) && File.Exists(webConfigTransform);
 
             //delete everything in destDir but .git folder
             if (Directory.Exists(destDir))
             {
-                string[] destDirs = Directory.GetDirectories(destDir, "*", SearchOption.TopDirectoryOnly);
+                var destDirs = Directory.GetDirectories(destDir, "*", SearchOption.TopDirectoryOnly);
                 destDirs.ToList<string>().ForEach(n =>
                 {
                     if (Path.GetFileName(n) != ".git")
@@ -49,16 +47,12 @@ namespace MonoWebPublisher
                         Directory.Delete(n, true);
                     }
                 });
-                string[] destFiles = Directory.GetFiles(destDir, "*", SearchOption.TopDirectoryOnly);
-                destFiles.ToList<string>().ForEach(n =>
-                {
-                    File.Delete(n);
-                });
+                Directory.GetFiles(destDir, "*", SearchOption.TopDirectoryOnly).ToList().ForEach(File.Delete);
 
             }
 
             //copy included files
-            List<string> fileList = GetIncludedFiles(projectFile);
+            var fileList = GetIncludedFiles(projectFile);
             fileList.ForEach(n =>
             {
                 bool isWebConfig = n.StartsWith("Web.") && n.EndsWith(".config");
@@ -80,8 +74,10 @@ namespace MonoWebPublisher
             // Transform web.config
             if (shouldTransformWebConfig)
             {
-                var xmlDoc = new XmlDataDocument();
-                xmlDoc.PreserveWhitespace = true;
+                var xmlDoc = new XmlDataDocument
+                {
+                    PreserveWhitespace = true
+                };
                 xmlDoc.Load(webConfig);
 
                 var transformation = new Microsoft.Web.XmlTransform.XmlTransformation(webConfigTransform);
@@ -96,8 +92,7 @@ namespace MonoWebPublisher
 
         private static List<string> GetIncludedFiles(string projectFile)
         {
-            XDocument xmlDoc;
-            xmlDoc = XDocument.Load(projectFile);
+            var xmlDoc = XDocument.Load(projectFile);
             var result = xmlDoc.Descendants(xmlDoc.Root.Name.Namespace + "Content")
                 .Where(node => node.Attribute("Include") != null)
                 .Select(node =>  System.Net.WebUtility.UrlDecode(node.Attribute("Include").Value.Replace("\\", Path.DirectorySeparatorChar.ToString())));
